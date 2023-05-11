@@ -110,6 +110,14 @@ char** getCmdArgs(const char* cmd_line, int *numOfArgs)
 
 bool checkIfNumber(const char* input)
 {
+    if(*input == '-')
+    {
+        input++;
+        if(!isdigit(*input))
+        {
+            return false;
+        }
+    }
     while(*input != '\0')
     {
         if(!isdigit(*input))
@@ -472,7 +480,7 @@ void KillCommand::execute()
         freeCmdArgs(args);
         return;
     }
-    if(kill(job->pid, stoi(signal) == -1))
+    if(kill(job->pid, stoi(signal)) == -1)
     {
         perror("smash error: kill failed");
         freeCmdArgs(args);
@@ -514,7 +522,17 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     int numOfArgs;
     char** args = getCmdArgs(cmd_line, &numOfArgs);
     string first_word = args[0];
-    if(!first_word.compare("chprompt") || !first_word.compare("chprompt&"))
+    if(string (cmd_line).find('>') != string::npos || string (cmd_line).find(">>")
+                                                           != string::npos)
+    {
+        return new RedirectionCommand(cmd_line);
+    }
+    else if(string (cmd_line).find('|') != string::npos || string (cmd_line).find("|&")
+                                                           != string::npos)
+    {
+        return new PipeCommand(cmd_line);
+    }
+    else if(!first_word.compare("chprompt") || !first_word.compare("chprompt&"))
     {
         return new ChangePromptCommand(cmd_line);
     }
@@ -565,16 +583,6 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     else if(!first_word.compare("timeout") || !first_word.compare("timeout&"))
     {
         return new TimeoutCommand(cmd_line);
-    }
-    else if(string (cmd_line).find('>') != string::npos || string (cmd_line).find(">>")
-    != string::npos)
-    {
-        return new RedirectionCommand(cmd_line);
-    }
-    else if(string (cmd_line).find('|') != string::npos || string (cmd_line).find("|&")
-                                                                    != string::npos)
-    {
-        return new PipeCommand(cmd_line);
     }
     else
     {
@@ -741,40 +749,53 @@ void RedirectionCommand::execute()
     }
     Command* cmd_exe = smash.CreateCommand(cmd.c_str());
     pid_t pid = fork();
+
     if(pid == -1)
     {
         perror("smash error: fork failed");
     }
     if(pid == 0)
     {
-        if (close(1) == -1)
+        //cout << getpid() << endl;
+        if(setpgrp() == -1)
         {
-            perror("smash error: close failed");
+            perror("smash error: setpgrp failed");
             exit(1);
         }
+        int  old_fd;
         if(flag == OVERWRITE)
         {
-            if(open("output.txt", O_WRONLY, O_CREAT) == -1)
+            old_fd = open(string(out).c_str(), O_WRONLY | O_CREAT);
+            if(old_fd == -1)
             {
                 perror("smash error: open failed");
                 exit(1);
             }
-        }else
+        }
+        else
         {
-            if(open("output.txt", O_WRONLY, O_CREAT, O_APPEND) == -1)
+            old_fd = open(string(out).c_str(), O_WRONLY | O_CREAT | O_APPEND) ;
+            if(old_fd == -1)
             {
                 perror("smash error: open failed");
                 exit(1);
             }
+        }
+        if(dup2(old_fd,1) == -1)
+        {
+            perror("smash error: dup2 failed");
+            //exit(1);
         }
         cmd_exe->execute();
         if(!_isBackgroundComamnd(cmd.c_str()))
         {
             delete cmd_exe;
         }
-
-    }else
+        exit(0);
+    }
+    else
     {
+        //cout << pid << endl;
         if (waitpid(pid, nullptr, WUNTRACED) == -1)
         {
             perror("smash error: waitpid failed");
@@ -866,11 +887,11 @@ void PipeCommand::execute()
                 delete cmd1_exe;
             }
         }
-            if (waitpid(pid1, nullptr, WUNTRACED) == -1) //TODO where to put waitpids
+            /*if (waitpid(pid1, nullptr, WUNTRACED) == -1) //TODO where to put waitpids
             {
                 perror("smash error: waitpid failed");
                 return;
-            }
+            }*/
         int pid2 = fork();
         if(pid2 == -1)
         {
@@ -912,6 +933,11 @@ void PipeCommand::execute()
         if(!closePipe(fd))
         {
             perror("smash error: close failed");
+        }
+        if (waitpid(pid1, nullptr, WUNTRACED) == -1) //TODO where to put waitpids
+        {
+            perror("smash error: waitpid failed");
+            return;
         }
         if(waitpid(pid2, nullptr,WUNTRACED) == -1)
         {
@@ -1275,7 +1301,7 @@ JobsList::JobEntry* JobsList::getLastStoppedJob()
 
 void JobsList::killAllJobs()
 {
-    cout << "sending SIGKILL signal to "<< list_of_jobs.size() << " jobs:" << endl;
+    cout << "smash: sending SIGKILL signal to "<< list_of_jobs.size() << " jobs:" << endl;
 
     for(auto& job : list_of_jobs)
     {
