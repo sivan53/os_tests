@@ -19,9 +19,14 @@ void ctrlZHandler(int sig_num) {
         cmdline_copy[i] = smash.fg_cmdline[i];
     }
     smash.jobs_list.addJob(cmdline_copy,smash.fg_pid,smash.fg_job_id,true);
-    kill(smash.fg_pid, SIGSTOP);
+    if(kill(smash.fg_pid, SIGSTOP) == -1)
+    {
+        perror("smash: kill failed");
+        return;
+    }
     cout << "smash: process " << smash.fg_pid <<" was stopped" << endl;
     smash.fg_pid = -1;
+    smash.fg_job_id = -1;
     smash.fg_cmdline = "";
 }
 
@@ -41,6 +46,7 @@ void ctrlCHandler(int sig_num) {
     cout << "smash: process " << smash.fg_pid <<" was killed" << endl;
     smash.fg_pid = -1;
     smash.fg_cmdline = "";
+    smash.fg_job_id = -1;
 }
 
 void alarmHandler(int sig_num) {

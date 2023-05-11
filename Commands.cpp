@@ -321,16 +321,16 @@ void ForegroundCommand::execute()
             return;
         }
         JobsList::JobEntry* job = jobs->getJobByID(stoi(args[1]));
-        char* cmdline_copy = (char*) malloc(sizeof (cmdline_copy) * string(job->cmd_line).length() + 1);
-        for (size_t i=0; i<string(job->cmd_line).length() + 1; i++)
-        {
-            cmdline_copy[i] = job->cmd_line[i];
-        }
         if(!job)
         {
             cerr << "smash error: fg: job-id " << args[1] << " does not exist" << endl;
             freeCmdArgs(args);
             return;
+        }
+        char* cmdline_copy = (char*) malloc(sizeof (cmdline_copy) * string(job->cmd_line).length() + 1);
+        for (size_t i=0; i<string(job->cmd_line).length() + 1; i++)
+        {
+            cmdline_copy[i] = job->cmd_line[i];
         }
         fgHelper(job, cmdline_copy);
     }
@@ -485,6 +485,10 @@ void KillCommand::execute()
     if(stoi(signal) == SIGSTOP)
     {
         job->stopped = true;
+    }
+    if(stoi(signal) == SIGKILL)
+    {
+        job->finished = true;
     }
     cout << "signal number " << signal << " was sent to pid " << job->pid << endl;
 }
@@ -1186,6 +1190,7 @@ void JobsList::printJobsList() //TODO check space validity
 
 void JobsList::removeFinishedJobs()
 {
+    //SmallShell& smash = SmallShell::getInstance();
     for(auto& job : list_of_jobs)
     {
         if (job.pid == waitpid(job.pid, NULL, WNOHANG))
@@ -1215,6 +1220,10 @@ void JobsList::removeFinishedJobs()
             max_job_id = job.job_id;
         }
     }
+    /*if (smash.fg_job_id > max_job_id)
+    {
+        max_job_id = smash.fg_job_id;
+    }*/
     this->nextJobID = max_job_id + 1;
 }
 
@@ -1270,7 +1279,7 @@ void JobsList::killAllJobs()
 
     for(auto& job : list_of_jobs)
     {
-        cerr << job.pid << ": " << job.cmd_line << endl;
+        cout << job.pid << ": " << job.cmd_line << endl;
     }
     for(auto& job : list_of_jobs)
     {
