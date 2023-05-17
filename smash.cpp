@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <string.h>
 #include "Commands.h"
 #include "signals.h"
 
@@ -12,7 +13,7 @@ int main(int argc, char* argv[]) {
     if(signal(SIGINT , ctrlCHandler)==SIG_ERR) {
         perror("smash error: failed to set ctrl-C handler");
     }
-    struct sigaction alarm_action;
+    struct sigaction alarm_action = {0};
     alarm_action.sa_flags = SA_RESTART;
     alarm_action.sa_handler = &alarmHandler;
     sigemptyset(&alarm_action.sa_mask);
@@ -29,9 +30,10 @@ int main(int argc, char* argv[]) {
         std::cout << smash.prompt << "> ";
         std::string cmd_line;
         std::getline(std::cin, cmd_line);
-        if(cmd_line !="")
+        //cout << "main pid: " << getpid() << endl;
+        if(cmd_line != "")
         {
-            smash.executeCommand(cmd_line.c_str());
+            smash.executeCommand(cmd_line.c_str(), false);
         }
     }
     return 0;

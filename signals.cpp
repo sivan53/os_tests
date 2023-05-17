@@ -6,7 +6,7 @@
 using namespace std;
 
 void ctrlZHandler(int sig_num) {
-	// TODO: Add your implementation
+    // TODO: Add your implementation
     cout << "smash: got ctrl-Z" << endl;
     SmallShell& smash = SmallShell::getInstance();
     if(smash.fg_pid == -1)
@@ -18,7 +18,16 @@ void ctrlZHandler(int sig_num) {
     {
         cmdline_copy[i] = smash.fg_cmdline[i];
     }
-    smash.jobs_list.addJob(cmdline_copy,smash.fg_pid,smash.fg_job_id,true);
+    if(smash.fg_alarm)
+    {
+        smash.jobs_list.addJob(cmdline_copy,smash.fg_pid,smash.fg_job_id,true,true, smash.alarm_duration);
+        smash.fg_alarm = false;
+        smash.alarm_duration = -1;
+    }
+    else
+    {
+        smash.jobs_list.addJob(cmdline_copy, smash.fg_pid, smash.fg_job_id, true);
+    }
     if(kill(smash.fg_pid, SIGSTOP) == -1)
     {
         perror("smash: kill failed");
@@ -31,7 +40,7 @@ void ctrlZHandler(int sig_num) {
 }
 
 void ctrlCHandler(int sig_num) {
-  // TODO: Add your implementation
+    // TODO: Add your implementation
     cout << "smash: got ctrl-C" << endl;
     SmallShell& smash = SmallShell::getInstance();
     if(smash.fg_pid == -1)
@@ -50,26 +59,8 @@ void ctrlCHandler(int sig_num) {
 }
 
 void alarmHandler(int sig_num) {
-  // TODO: Add your implementation
-  SmallShell& smash = SmallShell::getInstance();
-  /*if(smash.fg_cmdline != "" && smash.fg_timeout)
-  {
-      if(kill(smash.fg_pid, SIGINT) == -1)
-      {
-          perror("smash error: kill failed");
-      }
-      smash.fg_pid = -1;
-      smash.fg_timeout = false;
-      smash.fg_job_id = -1;
-      smash.fg_cmdline = "";
-  }*/
-  smash.alarm_list.endAlarms();
-  /*if(kill(smash.fg_pid, SIGKILL) == -1)
-  {
-      perror("smash: kill failed");
-      return;
-  }
+    // TODO: Add your implementation
     cout << "smash: got an alarm" << endl;
-    cout << "smash: " << smash.fg_cmdline << " timed out!" << endl;*/
+    SmallShell &smash = SmallShell::getInstance();
+    smash.alarm_list.endAlarms();
 }
-
